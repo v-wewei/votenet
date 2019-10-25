@@ -98,14 +98,19 @@ MODEL = importlib.import_module(FLAGS.model) # import network module
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_input_channel = int(FLAGS.use_color)*3 + int(not FLAGS.no_height)*1
 
-net = MODEL.VoteNet(num_class=DATASET_CONFIG.num_class,
-                    num_heading_bin=DATASET_CONFIG.num_heading_bin,
-                    num_size_cluster=DATASET_CONFIG.num_size_cluster,
-                    mean_size_arr=DATASET_CONFIG.mean_size_arr,
-                    num_proposal=FLAGS.num_target,
-                    input_feature_dim=num_input_channel,
-                    vote_factor=FLAGS.vote_factor,
-                    sampling=FLAGS.cluster_sampling)
+if FLAGS.model == 'boxnet':
+    Detector = MODEL.BoxNet
+else:
+    Detector = MODEL.VoteNet
+
+net = Detector(num_class=DATASET_CONFIG.num_class,
+               num_heading_bin=DATASET_CONFIG.num_heading_bin,
+               num_size_cluster=DATASET_CONFIG.num_size_cluster,
+               mean_size_arr=DATASET_CONFIG.mean_size_arr,
+               num_proposal=FLAGS.num_target,
+               input_feature_dim=num_input_channel,
+               vote_factor=FLAGS.vote_factor,
+               sampling=FLAGS.cluster_sampling)
 net.to(device)
 criterion = MODEL.get_loss
 
@@ -139,7 +144,8 @@ def evaluate_one_epoch():
         
         # Forward pass
         inputs = {'point_clouds': batch_data_label['point_clouds']}
-        end_points = net(inputs)
+        with torch.no_grad():
+            end_points = net(inputs)
 
         # Compute loss
         for key in batch_data_label:
